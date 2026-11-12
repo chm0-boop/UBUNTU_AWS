@@ -29,12 +29,13 @@ jobs:
         working-directory: my_first_flutter_app
         run: flutter build web --release
 
+
       - name: Deploy to AWS Lightsail
         uses: easingthemes/ssh-deploy@v5.1.0
         with:
-          SSH_PRIVATE_KEY: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-          REMOTE_HOST: ${{ secrets.LIGHTSAIL_HOST }}
-          REMOTE_USER: ${{ secrets.LIGHTSAIL_USERNAME }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
+          REMOTE_USER: ${{ secrets.REMOTE_USER }}
           SOURCE: "my_first_flutter_app/build/web/"
           TARGET: "/var/www/flutterapp/"
-          ARGS: "-rlgoDzvc --delete"
+
