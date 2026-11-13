@@ -7,6 +7,9 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -15,13 +18,12 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
 
-      - name: Install Dependencies
+      - name: Get Dependencies
         working-directory: my_first_flutter_app
         run: flutter pub get
 
@@ -29,13 +31,33 @@ jobs:
         working-directory: my_first_flutter_app
         run: flutter build web --release
 
+      - name: Prepare Deployment Archive
+        run: |
+          tar -czf web-build.tar.gz \
+            -C my_first_flutter_app/build/web .
 
-      - name: Deploy to AWS Lightsail
-        uses: easingthemes/ssh-deploy@v5.1.0
+      - name: Upload Build to Lightsail
+        uses: appleboy/scp-action@v0.1.7
         with:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
-          REMOTE_USER: ${{ secrets.REMOTE_USER }}
-          SOURCE: "my_first_flutter_app/build/web/"
-          TARGET: "/var/www/flutterapp/"
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.LIGHTSAIL_USERNAME }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          source: "web-build.tar.gz"
+          target: "/tmp/"
+          overwrite: true
 
+      - name: Deploy to Lightsail
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.LIGHTSAIL_USERNAME }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          script: |
+            sudo mkdir -p /var/www/flutterapp
+            sudo find /var/www/flutterapp -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+            sudo tar -xzf /tmp/web-build.tar.gz -C /var/www/flutterapp
+            sudo chown -R www-data:www-data /var/www/flutterapp
+            sudo chmod -R 755 /var/www/flutterapp
+            rm -f /tmp/web-build.tar.gz
+            sudo nginx -t
+            sudo systemctl reload nginx
